@@ -9,6 +9,7 @@
     .contract-detail { background-color: rgba(29, 29, 29, 0.24); }
     tr.row-clickable:hover td { background-color: rgba(255, 255, 255, 0.075); }
     tr.prefix-section-header td { background-color: rgba(255, 255, 255, 0.04); color: #adb5bd; font-size: 0.8rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .card > .card-header { background-color: rgba(255, 255, 255, 0.04); border-bottom: 1px solid rgba(255,255,255,0.1); color: #adb5bd; }
 </style>
 {% endblock %}
 
@@ -36,7 +37,7 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fa-solid fa-sun me-2"></i>{{ location }}</h5>
+                        <h6 class="mb-0"><i class="fa-solid fa-sun me-2"></i>{{ location }}</h6>
                         <span class="badge bg-secondary">{{ groups.total }} {% trans "contract types" %}</span>
                     </div>
                     <div class="card-body p-0">
