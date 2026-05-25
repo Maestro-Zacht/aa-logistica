@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 
 from corptools.models import CorporateContract, MapSystem
+from eve_sde.models import SolarSystem
 from .models import ContractThreshold, LogisticaConfiguration
 
 
@@ -139,7 +140,7 @@ def threshold_list(request):
             match_type = request.POST.get("match_type", ContractThreshold.MATCH_EXACT)
             minimum_count = request.POST.get("minimum_count")
             if system_id and title and minimum_count:
-                system = get_object_or_404(MapSystem, pk=system_id)
+                system = get_object_or_404(SolarSystem, pk=system_id)
                 ContractThreshold.objects.create(
                     solar_system=system,
                     title=title,
