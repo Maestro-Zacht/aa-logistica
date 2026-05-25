@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict
 
 from django.contrib.auth.decorators import login_required, permission_required
@@ -81,10 +82,19 @@ def index(request):
             None,
         )
 
+    _prefix_re = re.compile(r"^\[([^\]]+)\]")
+
+    def _get_prefix(title):
+        m = _prefix_re.match(title or "")
+        return m.group(1) if m else None
+
     def _place_row(by_location, system_name, row):
-        groups = by_location.setdefault(system_name, {"prefixed": [], "unprefixed": []})
-        bucket = "prefixed" if (row["title"] or "").startswith("[") else "unprefixed"
-        groups[bucket].append(row)
+        groups = by_location.setdefault(system_name, {"by_prefix": defaultdict(list), "unprefixed": []})
+        prefix = _get_prefix(row["title"] or "")
+        if prefix:
+            groups["by_prefix"][prefix].append(row)
+        else:
+            groups["unprefixed"].append(row)
 
     by_location = {}
     covered_thresholds = set()
@@ -105,18 +115,33 @@ def index(request):
             row = {"title": t.title, "count": 0, "threshold": t.minimum_count, "below_threshold": True, "contracts": []}
             _place_row(by_location, t.solar_system.name, row)
 
+    # Sort rows and convert by_prefix to a sorted dict with per-group metadata
     for groups in by_location.values():
-        for rows_list in groups.values():
-            rows_list.sort(key=lambda r: (r["title"] or "").lower())
+        sorted_prefix = {}
+        for prefix in sorted(groups["by_prefix"].keys()):
+            prefix_rows = sorted(groups["by_prefix"][prefix], key=lambda r: (r["title"] or "").lower())
+            sorted_prefix[prefix] = {
+                "rows": prefix_rows,
+                "below_count": sum(1 for r in prefix_rows if r["below_threshold"]),
+            }
+        groups["by_prefix"] = sorted_prefix
+        groups["unprefixed"].sort(key=lambda r: (r["title"] or "").lower())
+        groups["total"] = sum(len(g["rows"]) for g in sorted_prefix.values()) + len(groups["unprefixed"])
 
     threshold_only = request.GET.get("threshold_only") == "1"
     if threshold_only:
-        by_location = {
-            loc: {"prefixed": [r for r in groups["prefixed"] if r["threshold"] is not None],
-                  "unprefixed": [r for r in groups["unprefixed"] if r["threshold"] is not None]}
-            for loc, groups in by_location.items()
-            if any(r["threshold"] is not None for g in groups.values() for r in g)
-        }
+        filtered = {}
+        for loc, groups in by_location.items():
+            fp = {}
+            for prefix, grp in groups["by_prefix"].items():
+                t_rows = [r for r in grp["rows"] if r["threshold"] is not None]
+                if t_rows:
+                    fp[prefix] = {"rows": t_rows, "below_count": sum(1 for r in t_rows if r["below_threshold"])}
+            fu = [r for r in groups["unprefixed"] if r["threshold"] is not None]
+            if fp or fu:
+                total = sum(len(g["rows"]) for g in fp.values()) + len(fu)
+                filtered[loc] = {"by_prefix": fp, "unprefixed": fu, "total": total}
+        by_location = filtered
 
     context = {
         "title": "Logistica",

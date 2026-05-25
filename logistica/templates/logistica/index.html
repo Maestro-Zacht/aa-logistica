@@ -6,9 +6,9 @@
 {% block extra_css %}
 <style>
     .threshold-below { background-color: rgba(180, 50, 50, 0.35) !important; }
-    .collapse-icon { transition: transform 0.2s; }
-    [aria-expanded="true"] .collapse-icon { transform: rotate(90deg); }
-    .contract-detail { background-color: rgba(29, 29, 29, 0.24);}
+    .contract-detail { background-color: rgba(29, 29, 29, 0.24); }
+    tr.row-clickable:hover td { background-color: rgba(255, 255, 255, 0.075); }
+    tr.prefix-section-header td { background-color: rgba(255, 255, 255, 0.04); color: #adb5bd; font-size: 0.8rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.1); }
 </style>
 {% endblock %}
 
@@ -31,18 +31,17 @@
 
     {% if by_location %}
         {% for location, groups in by_location.items %}
+        {% with loc_idx=forloop.counter %}
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="fa-solid fa-sun me-2"></i>{{ location }}</h5>
-                        {% with p=groups.prefixed|length u=groups.unprefixed|length %}
-                        <span class="badge bg-secondary">{{ p|add:u }} {% trans "contract types" %}</span>
-                        {% endwith %}
+                        <span class="badge bg-secondary">{{ groups.total }} {% trans "contract types" %}</span>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover mb-0">
+                            <table class="table table-striped mb-0">
                                 <thead class="table-dark">
                                     <tr>
                                         <th>{% trans "Title" %}</th>
@@ -50,12 +49,26 @@
                                         <th>{% trans "Threshold" %}</th>
                                     </tr>
                                 </thead>
+
+                                {% for prefix, grp in groups.by_prefix.items %}
+                                {% with prefix_idx=forloop.counter %}
                                 <tbody>
-                                    {% for row in groups.prefixed %}
-                                    {% with loc_idx=forloop.parentloop.counter row_idx=forloop.counter %}
-                                    <tr {% if row.below_threshold %}class="threshold-below"{% endif %}
+                                    <tr class="prefix-section-header">
+                                        <td colspan="3" class="fw-semibold py-2 px-3">
+                                            [{{ prefix }}]
+                                            <span class="badge bg-secondary ms-2">{{ grp.rows|length }}</span>
+                                            {% if grp.below_count %}
+                                            <span class="badge bg-danger ms-1">{{ grp.below_count }} {% trans "below threshold" %}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                                <tbody>
+                                    {% for row in grp.rows %}
+                                    {% with row_idx=forloop.counter %}
+                                    <tr class="row-clickable{% if row.below_threshold %} threshold-below{% endif %}"
                                         data-bs-toggle="collapse"
-                                        data-bs-target="#detail-p-{{ loc_idx }}-{{ row_idx }}"
+                                        data-bs-target="#detail-{{ loc_idx }}-{{ prefix_idx }}-{{ row_idx }}"
                                         aria-expanded="false"
                                         style="cursor:pointer">
                                         <td>
@@ -79,7 +92,7 @@
                                     </tr>
                                     <tr>
                                         <td colspan="3" class="p-0 border-0">
-                                            <div class="collapse contract-detail" id="detail-p-{{ loc_idx }}-{{ row_idx }}">
+                                            <div class="collapse contract-detail" id="detail-{{ loc_idx }}-{{ prefix_idx }}-{{ row_idx }}">
                                                 <table class="table table-sm table-dark mb-0">
                                                     <thead>
                                                         <tr>
@@ -131,113 +144,106 @@
                                     {% endwith %}
                                     {% endfor %}
                                 </tbody>
+                                {% endwith %}
+                                {% endfor %}
+
                                 {% if groups.unprefixed %}
                                 <tbody>
-                                    <tr class="table-secondary"
-                                        data-bs-toggle="collapse"
-                                        data-bs-target="#other-{{ forloop.counter }}"
-                                        aria-expanded="false"
-                                        style="cursor:pointer">
+                                    <tr class="prefix-section-header">
                                         <td colspan="3" class="fw-semibold text-muted small py-1 px-3">
-                                            <i class="fa-solid fa-chevron-right me-1 collapse-icon"></i>{% trans "Other Contracts" %}
+                                            {% trans "Other Contracts" %}
                                             <span class="badge bg-secondary ms-2">{{ groups.unprefixed|length }}</span>
                                         </td>
                                     </tr>
                                 </tbody>
-                                {% endif %}
-                            </table>
-                            {% if groups.unprefixed %}
-                            <div class="collapse" id="other-{{ forloop.counter }}">
-                                <table class="table table-striped table-hover mb-0">
-                                    <tbody>
-                                        {% for row in groups.unprefixed %}
-                                        {% with loc_idx=forloop.parentloop.counter row_idx=forloop.counter %}
-                                        <tr {% if row.below_threshold %}class="threshold-below"{% endif %}
-                                            data-bs-toggle="collapse"
-                                            data-bs-target="#detail-u-{{ loc_idx }}-{{ row_idx }}"
-                                            aria-expanded="false"
-                                            style="cursor:pointer">
-                                            <td>
-                                                {% if row.below_threshold %}
-                                                    <i class="fa-solid fa-triangle-exclamation text-danger me-1"></i>
-                                                {% endif %}
-                                                {{ row.title|default:"-" }}
-                                            </td>
-                                            <td>
-                                                <span class="badge {% if row.below_threshold %}bg-danger{% elif row.threshold %}bg-success{% else %}bg-primary{% endif %}">
-                                                    {{ row.count }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                {% if row.threshold %}
-                                                    <span class="text-muted">{{ row.threshold }}</span>
-                                                {% else %}
-                                                    <span class="text-muted">—</span>
-                                                {% endif %}
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td colspan="3" class="p-0 border-0">
-                                                <div class="collapse contract-detail" id="detail-u-{{ loc_idx }}-{{ row_idx }}">
-                                                    <table class="table table-sm table-dark mb-0">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>{% trans "Issuer" %}</th>
-                                                                <th>{% trans "Main" %}</th>
-                                                                <th>{% trans "Price" %}</th>
-                                                                <th>{% trans "Issued" %}</th>
-                                                                <th>{% trans "Expires" %}</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {% for c in row.contracts %}
-                                                            {% main_character c.issuer_id as main %}
-                                                            <tr>
-                                                                <td>
-                                                                    {% if c.issuer_id %}
-                                                                        <a href="{% url 'corptools:reactmain' c.issuer_id %}" class="d-flex align-items-center gap-2 text-decoration-none">
-                                                                            <img src="{% eve_image "character" c.issuer_id 32 %}"
-                                                                                 alt="{{ c.issuer_name__name }}"
-                                                                                 class="rounded" width="32" height="32" loading="lazy">
-                                                                            {{ c.issuer_name__name|default:"-" }}
-                                                                        </a>
-                                                                    {% else %}
+                                <tbody>
+                                    {% for row in groups.unprefixed %}
+                                    {% with row_idx=forloop.counter %}
+                                    <tr class="row-clickable{% if row.below_threshold %} threshold-below{% endif %}"
+                                        data-bs-toggle="collapse"
+                                        data-bs-target="#detail-u-{{ loc_idx }}-{{ row_idx }}"
+                                        aria-expanded="false"
+                                        style="cursor:pointer">
+                                        <td>
+                                            {% if row.below_threshold %}
+                                                <i class="fa-solid fa-triangle-exclamation text-danger me-1"></i>
+                                            {% endif %}
+                                            {{ row.title|default:"-" }}
+                                        </td>
+                                        <td>
+                                            <span class="badge {% if row.below_threshold %}bg-danger{% elif row.threshold %}bg-success{% else %}bg-primary{% endif %}">
+                                                {{ row.count }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if row.threshold %}
+                                                <span class="text-muted">{{ row.threshold }}</span>
+                                            {% else %}
+                                                <span class="text-muted">—</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="3" class="p-0 border-0">
+                                            <div class="collapse contract-detail" id="detail-u-{{ loc_idx }}-{{ row_idx }}">
+                                                <table class="table table-sm table-dark mb-0">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>{% trans "Issuer" %}</th>
+                                                            <th>{% trans "Main" %}</th>
+                                                            <th>{% trans "Price" %}</th>
+                                                            <th>{% trans "Issued" %}</th>
+                                                            <th>{% trans "Expires" %}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for c in row.contracts %}
+                                                        {% main_character c.issuer_id as main %}
+                                                        <tr>
+                                                            <td>
+                                                                {% if c.issuer_id %}
+                                                                    <a href="{% url 'corptools:reactmain' c.issuer_id %}" class="d-flex align-items-center gap-2 text-decoration-none">
+                                                                        <img src="{% eve_image "character" c.issuer_id 32 %}"
+                                                                             alt="{{ c.issuer_name__name }}"
+                                                                             class="rounded" width="32" height="32" loading="lazy">
                                                                         {{ c.issuer_name__name|default:"-" }}
-                                                                    {% endif %}
-                                                                </td>
-                                                                <td>
-                                                                    {% if main %}
-                                                                        <a href="{% url 'corptools:reactmain' main.main_id %}" class="d-flex align-items-center gap-2 text-decoration-none">
-                                                                            <img src="{% eve_image "character" main.main_id 32 %}"
-                                                                                 alt="{{ main.main_name }}"
-                                                                                 class="rounded" width="32" height="32" loading="lazy">
-                                                                            {{ main.main_name }}
-                                                                        </a>
-                                                                    {% else %}
-                                                                        <span class="text-muted">—</span>
-                                                                    {% endif %}
-                                                                </td>
-                                                                <td>{{ c.price|floatformat:0|intcomma|default:"-" }}</td>
-                                                                <td>{{ c.date_issued|date:"Y-m-d" }}</td>
-                                                                <td>{{ c.date_expired|date:"Y-m-d" }}</td>
-                                                            </tr>
-                                                            {% endfor %}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        {% endwith %}
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {% endif %}
+                                                                    </a>
+                                                                {% else %}
+                                                                    {{ c.issuer_name__name|default:"-" }}
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>
+                                                                {% if main %}
+                                                                    <a href="{% url 'corptools:reactmain' main.main_id %}" class="d-flex align-items-center gap-2 text-decoration-none">
+                                                                        <img src="{% eve_image "character" main.main_id 32 %}"
+                                                                             alt="{{ main.main_name }}"
+                                                                             class="rounded" width="32" height="32" loading="lazy">
+                                                                        {{ main.main_name }}
+                                                                    </a>
+                                                                {% else %}
+                                                                    <span class="text-muted">—</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>{{ c.price|floatformat:0|intcomma|default:"-" }}</td>
+                                                            <td>{{ c.date_issued|date:"Y-m-d" }}</td>
+                                                            <td>{{ c.date_expired|date:"Y-m-d" }}</td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endwith %}
+                                    {% endfor %}
+                                </tbody>
+                                {% endif %}
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+        {% endwith %}
         {% endfor %}
     {% else %}
         <div class="row">
