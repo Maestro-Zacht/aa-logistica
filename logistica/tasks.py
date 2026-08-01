@@ -1,18 +1,16 @@
+from allianceauth.services.hooks import get_extension_logger
 from celery import shared_task
+from corptools.models import CorporateContract, EveLocation, MapSystem
 from esi.errors import TokenInvalidError
 from esi.models import Token
 from requests.exceptions import HTTPError
 
-from allianceauth.services.hooks import get_extension_logger
-
-from corptools import providers
-from corptools.models import CorporateContract, EveLocation, MapSystem
-
+from . import providers
 from .models import LogisticaConfiguration
 
 logger = get_extension_logger(__name__)
 
-REQ_SCOPE = 'esi-universe.read_structures.v1'
+REQ_SCOPE = "esi-universe.read_structures.v1"
 RESOLVE_BATCH_SIZE = 50
 
 
@@ -24,10 +22,9 @@ def _resolve_structure(location_id, tokens):
     """
     for token in tokens:
         try:
-            structure = providers.esi.client.Universe.get_universe_structures_structure_id(
-                structure_id=location_id,
-                token=token.valid_access_token()
-            ).result()
+            structure = providers.esi.client.Universe.GetUniverseStructuresStructureId(
+                structure_id=location_id, token=token
+            ).result(use_etag=False)
         except TokenInvalidError:
             continue
         except HTTPError:
@@ -35,12 +32,12 @@ def _resolve_structure(location_id, tokens):
         except Exception:
             continue
 
-        system = MapSystem.objects.filter(system_id=structure.get('solar_system_id')).first()
+        system = MapSystem.objects.filter(system_id=structure.solar_system_id).first()
         if system is None:
             continue
 
         loc, _ = EveLocation.objects.get_or_create(location_id=location_id)
-        loc.location_name = structure.get('name')
+        loc.location_name = structure.name
         loc.system = system
         loc.save()
         return loc
@@ -53,26 +50,34 @@ def resolve_contract_locations():
     """Resolve CorporateContract locations that are unresolved."""
     location_ids = list(
         (
-            set(CorporateContract.objects.filter(
-                start_location_name__isnull=True,
-                start_location_id__isnull=False,
-            ).values_list("start_location_id", flat=True))
-            | set(CorporateContract.objects.filter(
-                end_location_name__isnull=True,
-                end_location_id__isnull=False,
-            ).values_list("end_location_id", flat=True))
+            set(
+                CorporateContract.objects.filter(
+                    start_location_name__isnull=True,
+                    start_location_id__isnull=False,
+                ).values_list("start_location_id", flat=True)
+            )
+            | set(
+                CorporateContract.objects.filter(
+                    end_location_name__isnull=True,
+                    end_location_id__isnull=False,
+                ).values_list("end_location_id", flat=True)
+            )
         )
     )[:RESOLVE_BATCH_SIZE]
 
     config = LogisticaConfiguration.get_solo()
     if not config.esi_character:
-        logger.warning("Logistica: No ESI character configured — skipping location resolution")
+        logger.warning(
+            "Logistica: No ESI character configured — skipping location resolution"
+        )
         return "No ESI character configured"
 
-    tokens = list(Token.objects.filter(
-        character_id=config.esi_character.character_id,
-        scopes__name=REQ_SCOPE,
-    ))
+    tokens = list(
+        Token.objects.filter(
+            character_id=config.esi_character.character_id,
+            scopes__name=REQ_SCOPE,
+        )
+    )
     if not tokens:
         logger.warning(
             f"Logistica: Character {config.esi_character} has no token with {REQ_SCOPE}"
@@ -112,5 +117,7 @@ def resolve_contract_locations():
             skipped_ids.add(location_id)
             failed += 1
 
-    logger.info(f"Logistica: Resolved {resolved}, failed/skipped {failed} of {len(location_ids)} contract locations")
+    logger.info(
+        f"Logistica: Resolved {resolved}, failed/skipped {failed} of {len(location_ids)} contract locations"
+    )
     return f"Resolved {resolved}, failed/skipped {failed}"
