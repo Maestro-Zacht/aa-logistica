@@ -34,7 +34,7 @@ An AllianceAuth plugin for monitoring EVE Online corporate contract stock levels
    ```python
    from celery.schedules import crontab
 
-   CELERY_BEAT_SCHEDULE["logistica_resolve_contract_locations"] = {
+   CELERYBEAT_SCHEDULE["logistica_resolve_contract_locations"] = {
        "task": "logistica.tasks.resolve_contract_locations",
        "schedule": crontab(hour="*/6"),
    }
@@ -60,8 +60,8 @@ An AllianceAuth plugin for monitoring EVE Online corporate contract stock levels
 
 Logistica has a single configuration object managed via the Django admin panel at **Admin → Logistica → Logistica Configuration**.
 
-| Field | Description |
-|-------|-------------|
+| Field      | Description                                                                                                                                                    |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `aa_state` | AllianceAuth State to filter contracts by. Only contracts issued by characters in corporations belonging to this state will be shown. Leave blank to show all. |
 
 ### Contract Thresholds
@@ -71,20 +71,20 @@ Thresholds define the minimum number of outstanding contracts expected for a giv
 - The web interface at `/logistica/thresholds/` (requires `manage_contract_thresholds` permission)
 - The Django admin panel at **Admin → Logistica → Contract Thresholds**
 
-| Field | Description |
-|-------|-------------|
-| `solar_system` | The solar system where the contract originates |
-| `title` | The contract title to match |
-| `match_type` | `exact` — title must match exactly (case-insensitive); `contains` — title must contain the value (case-insensitive) |
-| `minimum_count` | Minimum number of outstanding contracts expected |
+| Field           | Description                                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `solar_system`  | The solar system where the contract originates                                                                      |
+| `title`         | The contract title to match                                                                                         |
+| `match_type`    | `exact` — title must match exactly (case-insensitive); `contains` — title must contain the value (case-insensitive) |
+| `minimum_count` | Minimum number of outstanding contracts expected                                                                    |
 
 Contracts below their threshold are highlighted in red on the dashboard.
 
 ## Permissions
 
-| Permission | Description |
-|------------|-------------|
-| `logistica.view_logistica` | Can view the logistics dashboard |
+| Permission                             | Description                                                  |
+| -------------------------------------- | ------------------------------------------------------------ |
+| `logistica.view_logistica`             | Can view the logistics dashboard                             |
 | `logistica.manage_contract_thresholds` | Can add and delete contract thresholds via the web interface |
 
 Assign these permissions to AllianceAuth groups or states as appropriate. The navigation menu item is only visible to users who hold `view_logistica` or are staff.
@@ -99,8 +99,8 @@ The task will attempt to use available tokens until one succeeds. Structures tha
 
 ## Background Tasks
 
-| Task | Schedule | Description |
-|------|----------|-------------|
+| Task                                         | Schedule      | Description                                                                               |
+| -------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------- |
 | `logistica.tasks.resolve_contract_locations` | Every 6 hours | Resolves structure names for contracts whose start or end location has not yet been named |
 
 ## Usage
